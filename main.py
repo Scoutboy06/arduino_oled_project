@@ -7,48 +7,49 @@ filetype = 'mp4'
 width = 128
 height = 64
 
-thresh = 127
-
+grayscale_threshold = 127
 
 vidcap = cv2.VideoCapture('videos/' + filename + '.' + filetype)
-for i in range(100):
-  success,image = vidcap.read()
 
-bitmap_arr = []
+frame_count = 0
 output_file = open('frameVideos/' + filename + '.h', 'w')
 output_file.write('const unsigned char %s [] PROGMEM = {\n' % (filename + '_video'))
 
-while success:   
-  success,image = vidcap.read()
+success,image = vidcap.read()
 
-  if not success:
-    break
-
+while success:
+  # Resize and grayscale image
   resized = cv2.resize(image, (width, height), interpolation = cv2.INTER_AREA)
   gray_image = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-  # (_, im_bw) = cv2.threshold(gray_image, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-  im_bw = cv2.threshold(gray_image, thresh, 255, cv2.THRESH_BINARY)[1]
+  im_bw = cv2.threshold(gray_image, grayscale_threshold, 255, cv2.THRESH_BINARY)[1]
 
-  # cv2.imwrite('frameVideos/bw_image.png', im_bw)
-  
-  base_10_num = 0
-  frame = ''
-  pixel_count = 0
+  current_frame = []
+  current_color = 0
+  pixels_in_row = 0
 
-  for i in range(0, height): # row
-    for j in range(0, width): # col
+  # Format described in notes.txt step 4
+
+  for i in range(height):
+    for j in range(width):
       color = im_bw[i, j] # returns 0 or 255
-      base_10_num += int(color / 255) * pow(2, pixel_count)
+      if color == current_color:
+        pixels_in_row += 1
 
-      pixel_count = (pixel_count + 1) % 16
+        if(pixels_in_row >= 255):
+          current_frame.append("255")
+          current_frame.append("0")
+          pixels_in_row = 0
 
-      if(pixel_count == 0):
-        hex_num = hex(base_10_num)
-        frame += hex_num + ','
+      else:
+        current_frame.append(str(pixels_in_row))
+        pixels_in_row = 1
+        current_color = 255 if current_color == 0 else 0
 
-        base_10_num = 0
+  current_frame.append(str(pixels_in_row))
+  output_file.write("{" + (','.join(current_frame)) + "},\n")
 
-  output_file.write(frame + '\n')
+  frame_count += 1
+  success,image = vidcap.read()
 
 output_file.write('};')
 output_file.close()

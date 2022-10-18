@@ -1,20 +1,20 @@
 128x64px
 
-256 * 32 bit int
-
-https://github.com/javl/image2cpp/blob/master/index.html
-
-
 1. Läsa frames av en mp4
 
-2. ändra storlek ´till 128 x 64
+2. ändra storlek till 128 x 64
 
 3. Gråskala
 
 4. Läsa pixlar av bilden och gör en bitmap.
+	Bitmapen är en tvådimensionell array av frames.
+	Varje värde (int) i arrayen beskriver pixlar.
 
-5. spara bitmaps i optimerat format i en fil.
+	Siffran visar hur många pixlar som är av samma färg i rad.
+	Första värdet är alltid svart.
+	Om första pixeln är vit så ska första siffran vara 0.
 
-https://stackoverflow.com/questions/14615244/android-is-there-any-way-of-speeding-up-canvas-drawbitmap
-https://github.com/adafruit/Adafruit_SSD1306
-https://github.com/adafruit/Adafruit_SSD1306/blob/master/examples/ssd1306_128x32_i2c/ssd1306_128x32_i2c.ino
+	Exempel:
+	000000000011110000000 => { 10, 4, 7 }
+
+5. spara bitmaps i en fil.
