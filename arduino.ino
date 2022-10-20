@@ -24,25 +24,26 @@
  */
 
 // :)
-
+#include <math.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+// #include "U8glib.h"
 
-#include "image.h"
-#include "image2.h"
-#include "white.h"
-#include "black.h"
+// #include <string.h>
 
-#define SCREEN_WIDTH 128 // OLED display width,  in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+// #include "frameVideos/never_gonna_give_you_up.h"
+#include "images/dino.h"
 
-int FPS = 2;
-bool isFirstImage = true;
+#define WIDTH 128 // OLED display width,  in pixels
+#define HEIGHT 64 // OLED display height, in pixels
+#define FPS 12
 
 // declare an SSD1306 display object connected to I2C
-Adafruit_SSD1306 oled(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+Adafruit_SSD1306 oled(WIDTH, HEIGHT, &Wire, -1);
+// U8GLIB_SSD1306_128X64 oled(U8G_I2C_OPT_NONE);
 
+const int btnPin = 2;
 
 void setup() {
   Serial.begin(9600);
@@ -51,31 +52,91 @@ void setup() {
   delay(2000); // wait for initializing
 }
 
+int btnState = 0;
+
+const float scrollSpeed = 3;
+const float G = 0.6;
+const float jumpForce = 6;
+const int dinoX = 20;
+const int dinoHeight = 21;
+const int dinoWidth = 20;
+const int cactusHeight = 20;
+const int cactusWidth = 10;
+
+float dinoY = HEIGHT - dinoHeight;
+float playerVel = 0;
+float playerAcc = 0;
+bool playerIsOnGround = true;
+float cactusX = 100.0;
+
 void loop() {
   oled.clearDisplay();
+  btnState = digitalRead(btnPin);
 
-  for(int i = 0; i < SCREEN_WIDTH; ++i) {
-    for(int j = 0; j < SCREEN_HEIGHT; ++j) {
-      int index = j * SCREEN_WIDTH + i;
-      oled.setCursor(i, j);
-
-      //? https://learn.adafruit.com/circuitpython-oled-knob-sketcher/drawing-pixels
-
-      //oledImage[index];
-
-      //int8_t i;
-
-      if(isFirstImage) {
-        oled.drawPixel(i, j, WHITE);
-      } else {
-        oled.drawPixel(i, j, BLACK);
-      }
-    }
+  // Jump
+  if(playerIsOnGround && btnState == HIGH) {
+    playerAcc -= jumpForce;
+    playerIsOnGround = false;
   }
 
-  isFirstImage = !isFirstImage;
+  // Apply forces
+  playerAcc += G;
+  playerVel += playerAcc;
+  dinoY += playerVel;
 
+  // cactusX -= scrollSpeed;
+
+  if(cactusX < -cactusWidth) {
+    cactusX = 140;
+  }
+
+  // Ground collision
+  if(dinoY + dinoHeight >= HEIGHT) {
+    dinoY = HEIGHT - dinoHeight;
+    playerVel = 0;
+    playerIsOnGround = true;
+  }
+
+  // Enemy collision detection
+  if((cactusX <= dinoX + dinoWidth) && (cactusX + cactusWidth >= dinoX) && (dinoY + dinoHeight >= HEIGHT - cactusHeight)) {
+    oled.fillRect(0, 0, WIDTH, HEIGHT, WHITE);
+    oled.display();
+    delay(1000);
+  }
+
+
+  // oled.fillRect(dinoX, dinoY, dinoWidth, dinoHeight, WHITE);
+  drawPlayer();
+  oled.fillRect(cactusX, HEIGHT - cactusHeight, cactusWidth, cactusHeight, WHITE);
+
+  playerAcc = 0;
   oled.display();
+  // delay(1000 / FPS);
 
-  delay(1000/FPS);
+  // delay(500);
+}
+
+
+
+void drawPlayer() {
+  bool isWhite = false;
+  unsigned int currentIndex = 0;
+  unsigned int x;
+  unsigned int y;
+
+  for(int i = 0; i < 62; i++) {
+    if(isWhite) {
+      for(int j = 0; j < dino_image[i]; j++) {
+        x = currentIndex % dinoWidth;
+        y = floor(currentIndex / dinoWidth);
+
+        oled.drawPixel(dinoX + x, dinoY + y, WHITE);
+        currentIndex++;
+      }
+    } else {
+      currentIndex += dino_image[i];
+    }
+
+    isWhite = !isWhite;
+  }
 }
