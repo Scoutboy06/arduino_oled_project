@@ -1,5 +1,4 @@
-const int dino_image [62] = {
-	// transparent
+const unsigned char dino_image [] = {
 	11, 8,
 	11, 2,
 	1, 7,
@@ -15,7 +14,8 @@ const int dino_image [62] = {
 	6, 2,
 	4, 10,
 	4, 3,
-	2, 11,
+	2, 9,
+	1, 1,
 	4, 14,
 	6, 14,
 	7, 12,
@@ -47,7 +47,14 @@ const int dino_image [62] = {
 // 	1 f, 8 t, 5 f, 6 t, // tail / neck
 // 	1 f, 7 t, 6 f, 6 t,
 // 	2 f, 4 t, 10 f, 4 t, // top of hand
+
+
+
 // 	3 f, 2 t, 11 f, 4 t,
+//	3 f, 2 t, 9 f, 1 t, 1f, 4 t,
+
+
+
 // 	14 f, 6 t, // end of tail
 // 	14 f, 6 t,
 
