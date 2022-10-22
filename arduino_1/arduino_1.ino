@@ -27,7 +27,9 @@
 
 
 #include <math.h>
-#include <Wire.h>
+#include <string.h>
+
+// #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
@@ -36,27 +38,34 @@
 
 #define WIDTH 128 // OLED display width,  in pixels
 #define HEIGHT 64 // OLED display height, in pixels
-#define SAMPLE_RATE 8000
+
+#define BTN_PIN 7
+#define ARDUINO_1_PIN_1 2
+#define ARDUINO_1_PIN_2 3
 
 // declare an SSD1306 display object connected to I2C
 Adafruit_SSD1306 oled(WIDTH, HEIGHT, &Wire, -1);
 
-const int btnPin = 2;
-const int speakerPin = 11;
-
 void setup() {
   // Serial.begin(9600);
-  pinMode(speakerPin, OUTPUT);
+  // pinMode(speakerPin, OUTPUT);
   oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   delay(2000); // wait for initializing
+
+  oled.clearDisplay();
+
+  pinMode(ARDUINO_1_PIN_1, OUTPUT);
+  pinMode(ARDUINO_1_PIN_2, OUTPUT);
+
+  // digitalWrite(ARDUINO_1_PIN, HIGH);
 }
 
 
 int btnState = 0;
 
-const float scrollSpeed = 3;
+const float scrollSpeed = 3.0;
 const float G = 0.6;
-const float jumpForce = 7;
+const float jumpForce = 7.0;
 const int dinoX = 20;
 const int dinoHeight = 21;
 const int dinoWidth = 20;
@@ -72,15 +81,24 @@ float cactusX = 140.0;
 bool cactusHasPassed = false;
 int points = 0;
 
+bool isPlayingJumpSound = false;
+bool isPlayingDeathSound = false;
+
 void loop() {
+  digitalWrite(ARDUINO_1_PIN_1, LOW);
+  digitalWrite(ARDUINO_1_PIN_2, LOW);
+
   oled.clearDisplay();
-  btnState = digitalRead(btnPin);
+  // oled.fillRect(dinoX, dinoY, dinoWidth, dinoHeight, BLACK);
+  // oled.fillRect(cactusX, HEIGHT - cactusHeight, cactusWidth, cactusHeight, BLACK);
+
+  btnState = digitalRead(BTN_PIN);
 
   // Jump
   if(playerIsOnGround && btnState == HIGH) {
     playerAcc -= jumpForce;
     playerIsOnGround = false;
-    jumpSound();
+    digitalWrite(ARDUINO_1_PIN_1, HIGH);
   }
 
   // Apply forces
@@ -109,24 +127,45 @@ void loop() {
 
   // Enemy collision detection
   if((cactusX <= dinoX + dinoWidth) && (cactusX + cactusWidth >= dinoX) && (dinoY + dinoHeight >= HEIGHT - cactusHeight)) {
+    digitalWrite(ARDUINO_1_PIN_2, HIGH);
     reset();
     oled.fillRect(0, 0, WIDTH, HEIGHT, WHITE);
     oled.display();
-    deathSound();
     delay(1000);
+    oled.clearDisplay();
     return;
   }
 
-
-  drawPlayer();
-  drawCactus();
-  // oled.fillRect(cactusX, HEIGHT - cactusHeight, cactusWidth, cactusHeight, WHITE);
+  drawTexture(dino_image, sizeof(dino_image) / sizeof(dino_image[0]), dinoX, dinoY, dinoWidth, WHITE);
+  drawTexture(cactus_image, sizeof(cactus_image) / sizeof(cactus_image[0]), cactusX, HEIGHT - cactusHeight, cactusWidth, WHITE);
 
   playerAcc = 0;
   oled.display();
 }
 
 
+void drawTexture(unsigned char *texture_image, int size, int offsetX, int offsetY, int width, int color) {
+  bool isWhite = !(color == WHITE);
+  unsigned int currentIndex = 0;
+  unsigned int x;
+  unsigned int y;
+
+  for(int i = 0; i < size; i++) {
+    if(isWhite) {
+      for(int j = 0; j < texture_image[i]; j++) {
+        x = currentIndex % width;
+        y = floor(currentIndex / width);
+
+        oled.drawPixel(offsetX + x, offsetY + y, WHITE);
+        currentIndex++;
+      }
+    } else {
+      currentIndex += texture_image[i];
+    }
+
+    isWhite = !isWhite;
+  }
+}
 
 void reset() {
   cactusX = 140;
@@ -136,78 +175,35 @@ void reset() {
   playerAcc = 0;
 }
 
-void jumpSound() {
-  return;
-  for(int i = 0; i < 20; i++) {
-    digitalWrite(speakerPin, HIGH);
-    delay(1);
-    digitalWrite(speakerPin, LOW);
-    delay(1);
-  }
-}
+void drawPoints() {
+  int p = points;
 
-void deathSound() {
-  return;
-  for(int i = 0; i < 3; i++) {
-    digitalWrite(speakerPin, HIGH);
-    delay(15);
-    digitalWrite(speakerPin, LOW);
-    delay(15);
-  }
+  while(p != 0) {
+    int currentNumber = p % 10;
 
-  delay(10);
-
-  for(int i = 0; i < 3; i++) {
-    digitalWrite(speakerPin, HIGH);
-    delay(15);
-    digitalWrite(speakerPin, LOW);
-    delay(15);
-  }
-}
-
-void drawPlayer() {
-  bool isWhite = false;
-  unsigned int currentIndex = 0;
-  unsigned int x;
-  unsigned int y;
-
-  for(int i = 0; i < sizeof(dino_image) / sizeof(dino_image[0]); i++) {
-    if(isWhite) {
-      for(int j = 0; j < dino_image[i]; j++) {
-        x = currentIndex % dinoWidth;
-        y = floor(currentIndex / dinoWidth);
-
-        oled.drawPixel(dinoX + x, dinoY + y, WHITE);
-        currentIndex++;
-      }
-    } else {
-      currentIndex += dino_image[i];
+    switch(currentNumber) {
+      case 0:
+        break;
+      case 1:
+        break;
+      case 2:
+        break;
+      case 3:
+        break;
+      case 4:
+        break;
+      case 5:
+        break;
+      case 6:
+        break;
+      case 7:
+        break;
+      case 8:
+        break;
+      case 9:
+        break;
     }
 
-    isWhite = !isWhite;
+    p = floor(p / 10);
   }
 }
-
-void drawCactus() {
-  bool isWhite = false;
-  unsigned int currentIndex = 0;
-  unsigned int x;
-  unsigned int y;
-
-  for(int i = 0; i < sizeof(cactus_image) / sizeof(cactus_image[0]); i++) {
-    if(isWhite) {
-      for(int j = 0; j < cactus_image[i]; j++) {
-        x = currentIndex % cactusWidth;
-        y = floor(currentIndex / cactusWidth);
-
-        oled.drawPixel(cactusX + x, HEIGHT - cactusHeight + y, WHITE);
-        currentIndex++;
-      }
-    } else {
-      currentIndex += cactus_image[i];
-    }
-
-    isWhite = !isWhite;
-  }
-}
-
