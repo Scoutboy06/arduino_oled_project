@@ -27,132 +27,173 @@
 
 
 #include <math.h>
-#include <string.h>
 
-// #include <Wire.h>
+#include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-#include "images/dino.h"
-#include "images/cactus.h"
+#include "images/stickman.h"
+#include "images/hurdle.h"
+#include "images/redo.h"
 
 #define WIDTH 128 // OLED display width,  in pixels
 #define HEIGHT 64 // OLED display height, in pixels
 
+#define SPEAKER_PIN 11
 #define BTN_PIN 7
 #define ARDUINO_1_PIN_1 2
 #define ARDUINO_1_PIN_2 3
+#define STICKMAN_FRAMES_PER_FRAME 2
+
+#define PLAYER_TEXTURE_HEIGHT 19
+#define PLAYER_TEXTURE_WIDTH 21
+// Hitbox is aligned to the top-right corner of the texture
+#define PLAYER_HITBOX_HEIGHT 12
+#define PLAYER_HITBOX_WIDTH 14
+
+#define HURDLE_WIDTH 7
+#define HURDLE_HEIGHT 14
+
+#define NUM_ENTRIES(ARRAY) (sizeof(ARRAY) / sizeof(ARRAY[0]))
 
 // declare an SSD1306 display object connected to I2C
 Adafruit_SSD1306 oled(WIDTH, HEIGHT, &Wire, -1);
 
+char btnState = 0;
+
+const float G = 0.6;
+const unsigned char jumpForce = 5;
+const unsigned char playerX = 20;
+
+float scrollSpeed = 3.0;
+float playerY = HEIGHT - PLAYER_TEXTURE_HEIGHT;
+float playerVel = 0.0;
+float playerAcc = 0.0;
+bool playerIsOnGround = true;
+float hurdleX = 140.0;
+
+bool hurdleHasPassed = false;
+unsigned int points = 0;
+
+unsigned long frameCount = 0;
+
+bool isStartScreen = true;
+bool isGameOverScreen = false;
+
 void setup() {
-  // Serial.begin(9600);
-  // pinMode(speakerPin, OUTPUT);
+  Serial.begin(9600);
+
   oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  delay(2000); // wait for initializing
 
-  oled.clearDisplay();
-
+  pinMode(SPEAKER_PIN, OUTPUT);
   pinMode(ARDUINO_1_PIN_1, OUTPUT);
   pinMode(ARDUINO_1_PIN_2, OUTPUT);
 
-  // digitalWrite(ARDUINO_1_PIN, HIGH);
+  delay(2000); // wait for initializing
+  oled.clearDisplay();
+  digitalWrite(ARDUINO_1_PIN_1, HIGH);
 }
 
-
-int btnState = 0;
-
-const float scrollSpeed = 3.0;
-const float G = 0.6;
-const float jumpForce = 7.0;
-const int dinoX = 20;
-const int dinoHeight = 21;
-const int dinoWidth = 20;
-const int cactusHeight = 20;
-const int cactusWidth = 13;
-
-float dinoY = HEIGHT - dinoHeight;
-float playerVel = 0;
-float playerAcc = 0;
-bool playerIsOnGround = true;
-float cactusX = 140.0;
-
-bool cactusHasPassed = false;
-int points = 0;
-
-bool isPlayingJumpSound = false;
-bool isPlayingDeathSound = false;
-
 void loop() {
-  digitalWrite(ARDUINO_1_PIN_1, LOW);
-  digitalWrite(ARDUINO_1_PIN_2, LOW);
-
   oled.clearDisplay();
-  // oled.fillRect(dinoX, dinoY, dinoWidth, dinoHeight, BLACK);
-  // oled.fillRect(cactusX, HEIGHT - cactusHeight, cactusWidth, cactusHeight, BLACK);
 
   btnState = digitalRead(BTN_PIN);
+
+  if(isStartScreen) {
+    drawStartScreen();
+    return;
+  } else if(isGameOverScreen) {
+    drawGameOverScreen();
+    return;
+  }
 
   // Jump
   if(playerIsOnGround && btnState == HIGH) {
     playerAcc -= jumpForce;
     playerIsOnGround = false;
-    digitalWrite(ARDUINO_1_PIN_1, HIGH);
+    tone(SPEAKER_PIN, 500, 40);
   }
 
   // Apply forces
   playerAcc += G;
   playerVel += playerAcc;
-  dinoY += playerVel;
+  playerY += playerVel;
 
-  cactusX -= scrollSpeed;
+  hurdleX -= scrollSpeed;
 
-  if(cactusX < -cactusWidth) {
-    cactusX = 140;
-    cactusHasPassed = false;
+  // Reset hurdle position
+  if(hurdleX <= -HURDLE_WIDTH) {
+    hurdleX = WIDTH;
+    hurdleHasPassed = false;
   }
   
-  else if(cactusX < dinoX && !cactusHasPassed) {
-    cactusHasPassed = true;
+  // Give point
+  else if(hurdleX < playerX && !hurdleHasPassed) {
+    hurdleHasPassed = true;
     points++;
   }
 
   // Ground collision
-  if(dinoY + dinoHeight >= HEIGHT) {
-    dinoY = HEIGHT - dinoHeight;
+  if(playerY + PLAYER_TEXTURE_HEIGHT >= HEIGHT) {
+    playerY = HEIGHT - PLAYER_TEXTURE_HEIGHT;
     playerVel = 0;
     playerIsOnGround = true;
   }
 
   // Enemy collision detection
-  if((cactusX <= dinoX + dinoWidth) && (cactusX + cactusWidth >= dinoX) && (dinoY + dinoHeight >= HEIGHT - cactusHeight)) {
-    digitalWrite(ARDUINO_1_PIN_2, HIGH);
-    reset();
-    oled.fillRect(0, 0, WIDTH, HEIGHT, WHITE);
-    oled.display();
-    delay(1000);
+  if(playerCollidesWithHurdle()) {
+    digitalWrite(ARDUINO_1_PIN_1, LOW);
+
+    isGameOverScreen = true;
+
+    tone(SPEAKER_PIN, 33, 200);
+    // delay(110);
+    // tone(SPEAKER_PIN, 33, 100);
+
     oled.clearDisplay();
     return;
   }
 
-  drawTexture(dino_image, sizeof(dino_image) / sizeof(dino_image[0]), dinoX, dinoY, dinoWidth, WHITE);
-  drawTexture(cactus_image, sizeof(cactus_image) / sizeof(cactus_image[0]), cactusX, HEIGHT - cactusHeight, cactusWidth, WHITE);
+  char stickmanFrame = int(floor(frameCount / STICKMAN_FRAMES_PER_FRAME)) % NUM_ENTRIES(stickman_running);
+
+  if(playerIsOnGround) drawTexture(stickman_running[stickmanFrame], NUM_ENTRIES(stickman_running[stickmanFrame]), playerX, playerY, PLAYER_TEXTURE_WIDTH, WHITE);
+  else {
+    if(playerVel > 0 && playerY > HEIGHT - PLAYER_TEXTURE_HEIGHT - 6) drawTexture(stickman_static_in_jump, NUM_ENTRIES(stickman_static_in_jump), playerX, playerY, PLAYER_TEXTURE_WIDTH, WHITE);
+    else if(playerVel < -1) drawTexture(stickman_jumping, NUM_ENTRIES(stickman_jumping), playerX, playerY, PLAYER_TEXTURE_WIDTH, WHITE);
+    else if(playerVel > 1) drawTexture(stickman_falling, NUM_ENTRIES(stickman_falling), playerX, playerY, PLAYER_TEXTURE_WIDTH, WHITE);
+    else drawTexture(stickman_static_in_jump, NUM_ENTRIES(stickman_static_in_jump), playerX, playerY, PLAYER_TEXTURE_WIDTH, WHITE);
+  }
+
+  drawTexture(hurdle, NUM_ENTRIES(hurdle), hurdleX, HEIGHT - HURDLE_HEIGHT, HURDLE_WIDTH, WHITE);
+  drawPoints(5);
 
   playerAcc = 0;
+  frameCount++;
+  scrollSpeed += 0.002;
+
   oled.display();
 }
 
 
+bool playerCollidesWithHurdle() {
+  unsigned char hitboxX = playerX + (PLAYER_TEXTURE_WIDTH - PLAYER_HITBOX_WIDTH);
+  unsigned char hitboxY = playerY + (PLAYER_TEXTURE_HEIGHT - PLAYER_HITBOX_HEIGHT);
+
+  return (hurdleX <= hitboxX + PLAYER_HITBOX_WIDTH) && (hurdleX + HURDLE_WIDTH >= hitboxX) && (playerY + PLAYER_HITBOX_HEIGHT >= HEIGHT - HURDLE_HEIGHT);
+}
+
+
 void drawTexture(unsigned char *texture_image, int size, int offsetX, int offsetY, int width, int color) {
-  bool isWhite = !(color == WHITE);
   unsigned int currentIndex = 0;
   unsigned int x;
   unsigned int y;
+  bool isWhite = !(color == WHITE);
 
   for(int i = 0; i < size; i++) {
+    int n = pgm_read_byte(&texture_image[i]);
+
     if(isWhite) {
-      for(int j = 0; j < texture_image[i]; j++) {
+      for(int j = 0; j < n; j++) {
         x = currentIndex % width;
         y = floor(currentIndex / width);
 
@@ -160,7 +201,7 @@ void drawTexture(unsigned char *texture_image, int size, int offsetX, int offset
         currentIndex++;
       }
     } else {
-      currentIndex += texture_image[i];
+      currentIndex += n;
     }
 
     isWhite = !isWhite;
@@ -168,42 +209,89 @@ void drawTexture(unsigned char *texture_image, int size, int offsetX, int offset
 }
 
 void reset() {
-  cactusX = 140;
+  hurdleX = 140;
   points = 0;
-  dinoY = HEIGHT - dinoHeight;
+  playerY = HEIGHT - PLAYER_TEXTURE_HEIGHT;
   playerVel = 0;
   playerAcc = 0;
+  scrollSpeed = 3.0;
 }
 
-void drawPoints() {
-  int p = points;
+void drawPoints(int y) {
+  oled.setTextSize(1);
+  oled.setTextColor(WHITE);
+  oled.setCursor(WIDTH - 20, y);
 
-  while(p != 0) {
-    int currentNumber = p % 10;
-
-    switch(currentNumber) {
-      case 0:
-        break;
-      case 1:
-        break;
-      case 2:
-        break;
-      case 3:
-        break;
-      case 4:
-        break;
-      case 5:
-        break;
-      case 6:
-        break;
-      case 7:
-        break;
-      case 8:
-        break;
-      case 9:
-        break;
-    }
-
-    p = floor(p / 10);
+  if(points == 0) {
+    oled.print("000");
+    return;
   }
+
+  String p = String(points);
+  char digits = floor(log10(points)) + 1;
+  char diff = 3 - digits;
+
+  for(int i = 0; i < diff; i++) {
+    p = "0" + p;
+  }
+
+  oled.print(p);
+}
+
+void drawStartScreen() {
+  oled.setTextSize(2);
+  oled.setTextColor(WHITE);
+
+  oled.setCursor(30, 10);
+  oled.println("HURDLE");
+
+
+  if(btnState == HIGH) {
+    oled.fillRect(30, 32, WIDTH - 60, 30, WHITE);
+
+    oled.setTextColor(BLACK);
+    oled.setTextSize(2);
+    oled.setCursor(40, 40);
+    oled.println("PLAY");
+
+    oled.display();
+
+    delay(200);
+    isStartScreen = false;
+
+    return;
+  }
+
+  
+  oled.drawRect(30, 32, WIDTH - 60, 30, WHITE);
+  oled.setTextSize(2);
+  oled.setCursor(40, 40);
+  oled.println("PLAY");
+  oled.display();
+}
+
+void drawGameOverScreen() {
+  drawPoints(HEIGHT - 10);
+
+  oled.setTextColor(WHITE);
+  oled.setTextSize(2);
+  oled.setCursor(10, 10);
+  oled.println("GAME OVER");
+  
+  if(btnState == HIGH) {
+    oled.fillRect(WIDTH * 0.5 - 15, 30, 30, 30, WHITE);
+
+    drawTexture(redo_icon, NUM_ENTRIES(redo_icon), (WIDTH - 20) * 0.5, 35, 20, BLACK);
+    oled.display();
+
+    delay(200);
+    isGameOverScreen = false;
+    reset();
+
+    return;
+  }
+
+  oled.drawRect(WIDTH * 0.5 - 15, 30, 30, 30, WHITE);
+  drawTexture(redo_icon, NUM_ENTRIES(redo_icon), (WIDTH - 20) * 0.5, 35, 20, WHITE);
+  oled.display();
 }

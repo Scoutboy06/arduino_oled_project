@@ -3,7 +3,7 @@ const $$ = s => document.querySelectorAll(s);
 
 const root = $('#root');
 const modeBtn = $('#modeBtn');
-let WIDTH = 16;
+let WIDTH = 20;
 let HEIGHT = 20;
 let editMode = 'draw';
 let mouseIsDown = false;
@@ -22,6 +22,39 @@ function createCells() {
 		}
 
 		root.appendChild(row);
+	}
+}
+
+function importData(data) {
+	root.innerHTML = '';
+	let isWhite = false;
+	let currentIndex = 0;
+
+	let lastY = 0;
+
+	let row = document.createElement('tr');
+	row.classList.add('row');
+
+	for (let i = 0; i < data.length; i++) {
+		for (let j = 0; j < data[i]; j++) {
+			const y = Math.floor(currentIndex / WIDTH);
+
+			if (y !== lastY) {
+				root.appendChild(row);
+				row = document.createElement('tr');
+				row.classList.add('row');
+				lastY = y;
+			}
+
+			const cell = document.createElement('th');
+			cell.classList.add('cell');
+			if (isWhite) cell.classList.add('filled');
+			row.appendChild(cell);
+
+			currentIndex++;
+		}
+
+		isWhite = !isWhite;
 	}
 }
 
@@ -106,6 +139,11 @@ $('#exportBtn').addEventListener('click', () => {
 
 	matrix.push(pixelsInRow);
 	console.log(matrix);
+});
+
+$('#importBtn').addEventListener('click', () => {
+	let values = prompt('Data:').split(/, */g);
+	importData(values);
 });
 
 createCells();

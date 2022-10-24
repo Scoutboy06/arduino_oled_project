@@ -1,75 +1,43 @@
-const int speakerPin = 7;
-const int inputPin1 = A5;
-const int inputPin2 = A4;
+// #include "notes.h"
+#include "PCM.h"
+#include "computer6.h"
+
+#define INPUT_PIN 12
+
+const int SAMPLE_RATE = 10000;
+const int BITS = 2;
+
+bool isPlaying = false;
+unsigned long musicStartedAt = 0;
+unsigned int songLength = 0;
 
 void setup() {
-	pinMode(speakerPin, OUTPUT);
-	pinMode(inputPin1, INPUT);
-	pinMode(inputPin2, INPUT);
-}
+  Serial.begin(9600);
+	pinMode(INPUT_PIN, INPUT);
 
-bool isPlayingJumpSound = false;
-bool isPlayingDeathSound = false;
+  songLength = ((sizeof(defaultSample) * (8 / BITS) ) / SAMPLE_RATE) * 1000;
+}
 
 void loop() {
-	bool pin1IsActive = digitalRead(inputPin1) == HIGH;
-	bool pin2IsActive = digitalRead(inputPin2) == HIGH;
+  bool shouldPlay = digitalRead(INPUT_PIN) == HIGH;
 
-  // Jump sound
-  if(pin1IsActive && !pin2IsActive) {
-    if(!isPlayingJumpSound) {
-      isPlayingJumpSound = true;
-      jumpSound();
-    }
-
-  } else {
-    isPlayingJumpSound = false;
+  // Start playback
+  if(!isPlaying && shouldPlay) {
+    startPlayback(defaultSample, sizeof(defaultSample), SAMPLE_RATE, BITS);
+    musicStartedAt = millis();
+    isPlaying = true;
   }
 
-  // Death sound
-  if(!pin1IsActive && pin2IsActive) {
-    if(!isPlayingDeathSound) {
-      isPlayingDeathSound = true;
-      deathSound();
-    }
-  } else {
-    isPlayingDeathSound = false;
+  // Stop playback
+  else if(isPlaying && !shouldPlay) {
+    stopPlayback();
+    isPlaying = false;
   }
 
-	// if(pin1IsActive && !pin2IsActive && !isPlayingJumpSound) {
-	// 	jumpSound();
-	// }
-
-	// if(!pin1IsActive && pin2IsActive && !isPlayingDeathSound) {
-	// 	deathSound();
-	// }
-
-}
-
-
-void jumpSound() {
-  for(int i = 0; i < 20; i++) {
-    digitalWrite(speakerPin, HIGH);
-    delay(1);
-    digitalWrite(speakerPin, LOW);
-    delay(1);
-  }
-}
-
-void deathSound() {
-  for(int i = 0; i < 3; i++) {
-    digitalWrite(speakerPin, HIGH);
-    delay(15);
-    digitalWrite(speakerPin, LOW);
-    delay(15);
-  }
-
-  delay(10);
-
-  for(int i = 0; i < 3; i++) {
-    digitalWrite(speakerPin, HIGH);
-    delay(15);
-    digitalWrite(speakerPin, LOW);
-    delay(15);
+  // If music should loop
+  else if(isPlaying && shouldPlay && (millis() - musicStartedAt >= songLength)) {
+    stopPlayback();
+    startPlayback(defaultSample, sizeof(defaultSample), SAMPLE_RATE, BITS);
+    musicStartedAt = millis();
   }
 }
