@@ -106,6 +106,8 @@ void loop() {
     drawGameOverScreen();
     return;
   }
+  
+  digitalWrite(ARDUINO_1_PIN_1, HIGH);
 
   // Jump
   if(playerIsOnGround && btnState == HIGH) {
@@ -147,10 +149,6 @@ void loop() {
     isGameOverScreen = true;
 
     tone(SPEAKER_PIN, 33, 200);
-    // delay(110);
-    // tone(SPEAKER_PIN, 33, 100);
-
-    oled.clearDisplay();
     return;
   }
 
@@ -169,7 +167,8 @@ void loop() {
 
   playerAcc = 0;
   frameCount++;
-  scrollSpeed += 0.002;
+
+  if(scrollSpeed < 5) scrollSpeed += 0.002;
 
   oled.display();
 }
